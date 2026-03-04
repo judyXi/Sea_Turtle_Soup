@@ -167,6 +167,18 @@
   .thinking-indicator { display:none; align-items:center; gap:8px; font-size:12px; color:var(--faded); font-style:italic; padding:8px 0; }
   .thinking-indicator.show { display:flex; }
 
+  /* API KEY */
+  .api-key-row { display:flex; gap:8px; margin-top:20px; align-items:center; flex-wrap:wrap; }
+  .api-key-input {
+    flex:1; min-width:200px; padding:9px 14px;
+    border:1px solid var(--faded); background:white;
+    font-family:'Noto Serif TC',serif; font-size:13px; color:var(--ink); outline:none;
+    letter-spacing:1px;
+  }
+  .api-key-input:focus { border-color:var(--ink); }
+  .api-key-input::placeholder { color:var(--faded); letter-spacing:0; }
+  .api-key-hint { font-size:11px; color:var(--faded); margin-top:6px; line-height:1.6; }
+
   /* ANSWER */
   #screen-answer .card { text-align:center; }
   .answer-label { font-size:11px; letter-spacing:3px; color:var(--rust); text-transform:uppercase; margin-bottom:18px; }
@@ -202,7 +214,7 @@
       每個問題只能用「<strong>是</strong>」、「<strong>否</strong>」或「<strong>不相關</strong>」回答。<br>
       提問越少、猜中越快，代表你的推理能力越強！
     </p>
-    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:20px;">
       <button class="btn" onclick="showScreen('screen-select')">開始遊戲</button>
       <span style="font-size:12px;color:var(--faded);">共 40 道謎題，涵蓋各種難度與主題</span>
     </div>
@@ -410,6 +422,8 @@ const PUZZLES = [
    answer:"案發現場在地下室，沒有窗戶，唯一的照明在案發時被打翻，現場陷入全黑。任何真正的目擊者都不可能看清兇手的臉——除非他就是兇手本人，因為只有兇手知道自己的長相，知道自己如何逃跑。"}
 ];
 
+const WORKER_URL = 'https://black-hat-ef6d.liuliuer321.workers.dev';
+
 let selectedPuzzle = null;
 let questionCount = 0;
 let chatHistory = [];
@@ -491,19 +505,25 @@ async function askQuestion() {
 5. 不主動透露關鍵線索，風格神秘沉著。用繁體中文。`;
 
   try {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    const contents = [
+      ...chatHistory.map(m => ({
+        role: m.role === 'assistant' ? 'model' : 'user',
+        parts: [{text: m.content}]
+      })),
+      {role:'user', parts:[{text:q}]}
+    ];
+    const resp = await fetch(WORKER_URL, {
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body: JSON.stringify({
-        model:'claude-sonnet-4-20250514', max_tokens:200, system:sys,
-        messages:[
-          ...chatHistory.map(m=>({role:m.role,content:m.content})),
-          {role:'user',content:q}
-        ]
+        system_instruction:{parts:[{text:sys}]},
+        contents,
+        generationConfig:{maxOutputTokens:200}
       })
     });
     const data = await resp.json();
-    const reply = data.content.map(c=>c.text||'').join('').trim();
+    const reply = data.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('').trim() || '';
+    if (!reply) throw new Error('empty');
     chatHistory.push({role:'user',content:q});
     chatHistory.push({role:'assistant',content:reply});
 
