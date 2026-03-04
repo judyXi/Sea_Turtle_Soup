@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>海龜湯 — 情境猜謎</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@300;400;600&family=Crimson+Pro:ital,wght@0,300;0,400;1,300;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1a1410;
+    --paper: #f4efe6;
+    --aged: #e8dfc8;
+    --faded: #c8b99a;
+    --rust: #8b3a2a;
+    --teal: #2a6b6b;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--ink);
+    min-height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Noto Serif TC', serif;
+    overflow-x: hidden; padding: 20px 0;
+  }
+  .app { width: 100%; max-width: 740px; padding: 20px; }
+  .screen { display: none; animation: fadeIn 0.5s ease; }
+  .screen.active { display: block; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+
+  /* CARD */
+  .card {
+    background: var(--paper); padding: 48px 52px;
+    box-shadow: 4px 4px 0 var(--faded), 10px 10px 40px rgba(0,0,0,.55);
+    position: relative;
+  }
+  .card::before {
+    content:''; position:absolute; top:0; left:48px; right:48px; height:1px;
+    background: linear-gradient(90deg,transparent,var(--faded) 30%,var(--faded) 70%,transparent);
+  }
+
+  /* TITLE */
+  .title-header { text-align:center; margin-bottom:36px; }
+  .title-ornament {
+    font-family:'Crimson Pro',serif; font-style:italic;
+    color:var(--faded); font-size:13px; letter-spacing:3px;
+    text-transform:uppercase; margin-bottom:10px;
+  }
+  h1 { font-size:52px; font-weight:300; color:var(--ink); letter-spacing:-1px; line-height:1; margin-bottom:6px; }
+  .title-sub { font-family:'Crimson Pro',serif; font-style:italic; color:var(--faded); font-size:16px; }
+  .divider {
+    display:flex; align-items:center; gap:12px;
+    margin:24px 0; color:var(--faded); font-size:12px; letter-spacing:2px;
+  }
+  .divider::before,.divider::after { content:''; flex:1; height:1px; background:var(--faded); opacity:.5; }
+
+  /* BUTTONS */
+  .btn {
+    display:inline-block; padding:13px 32px;
+    border:1px solid var(--ink); background:var(--ink);
+    color:var(--paper); font-family:'Noto Serif TC',serif;
+    font-size:14px; letter-spacing:1px; cursor:pointer; transition:all .2s;
+  }
+  .btn:hover { background:var(--rust); border-color:var(--rust); }
+  .btn:disabled { opacity:.4; cursor:not-allowed; }
+  .btn-ghost { background:transparent; color:var(--ink); }
+  .btn-ghost:hover { background:var(--ink); color:var(--paper); }
+  .btn-sm { padding:8px 18px; font-size:12px; }
+
+  /* FILTER */
+  .controls-row { display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; }
+  .search-input {
+    flex:1; min-width:160px; padding:9px 14px;
+    border:1px solid var(--faded); background:white;
+    font-family:'Noto Serif TC',serif; font-size:13px; color:var(--ink); outline:none;
+  }
+  .search-input:focus { border-color:var(--ink); }
+  .search-input::placeholder { color:var(--faded); }
+  .filter-select {
+    padding:9px 12px; border:1px solid var(--faded); background:white;
+    font-family:'Noto Serif TC',serif; font-size:13px; color:var(--ink); cursor:pointer; outline:none;
+  }
+
+  /* PUZZLE GRID */
+  .puzzle-grid {
+    display:grid; grid-template-columns:1fr 1fr;
+    gap:10px; max-height:340px; overflow-y:auto; padding-right:4px;
+  }
+  .puzzle-grid::-webkit-scrollbar { width:4px; }
+  .puzzle-grid::-webkit-scrollbar-thumb { background:var(--faded); }
+  .puzzle-item {
+    border:1px solid var(--faded); padding:14px;
+    cursor:pointer; transition:all .2s; position:relative;
+  }
+  .puzzle-item:hover { border-color:var(--ink); background:rgba(26,20,16,.03); }
+  .puzzle-item.selected { border-color:var(--rust); background:rgba(139,58,42,.06); }
+  .puzzle-tag { font-size:10px; letter-spacing:1.5px; color:var(--rust); text-transform:uppercase; margin-bottom:5px; }
+  .puzzle-diff { float:right; font-size:10px; color:var(--faded); }
+  .puzzle-title { font-size:14px; color:var(--ink); line-height:1.4; }
+  .puzzle-preview {
+    font-size:11px; color:var(--faded); margin-top:6px; line-height:1.5;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+  }
+  .empty-state { grid-column:1/-1; text-align:center; padding:32px; color:var(--faded); font-style:italic; font-size:14px; }
+
+  /* GAME */
+  .game-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:24px; }
+  .game-tag { font-size:10px; letter-spacing:2px; color:var(--rust); text-transform:uppercase; }
+  .game-meta { font-size:12px; color:var(--faded); text-align:right; }
+  .puzzle-surface {
+    background:var(--aged); border:1px solid var(--faded);
+    padding:26px 30px 26px 42px; margin-bottom:6px; position:relative;
+  }
+  .puzzle-surface::before {
+    content:'「'; position:absolute; top:10px; left:12px;
+    font-size:36px; color:var(--faded); font-family:'Crimson Pro',serif; opacity:.5;
+  }
+  .puzzle-text { font-size:16px; line-height:2; color:var(--ink); }
+  .hint-row { font-size:11px; color:var(--faded); text-align:right; margin-bottom:20px; letter-spacing:1px; }
+
+  /* CHAT */
+  .chat-log { height:220px; overflow-y:auto; display:flex; flex-direction:column; gap:10px; margin-bottom:14px; }
+  .chat-log::-webkit-scrollbar { width:3px; }
+  .chat-log::-webkit-scrollbar-thumb { background:var(--faded); }
+  .msg { max-width:85%; animation:msgIn .3s ease; }
+  @keyframes msgIn { from{opacity:0;transform:translateX(-6px)} to{opacity:1;transform:translateX(0)} }
+  .msg.user { align-self:flex-end; animation:msgInR .3s ease; }
+  @keyframes msgInR { from{opacity:0;transform:translateX(6px)} to{opacity:1;transform:translateX(0)} }
+  .msg-label { font-size:10px; letter-spacing:1.5px; color:var(--faded); margin-bottom:3px; text-transform:uppercase; }
+  .msg.user .msg-label { text-align:right; }
+  .msg-bubble { padding:10px 15px; font-size:14px; line-height:1.7; color:var(--ink); border:1px solid var(--faded); }
+  .msg.ai .msg-bubble { background:white; }
+  .msg.user .msg-bubble { background:var(--ink); color:var(--paper); border-color:var(--ink); }
+  .answer-yes .msg-bubble { border-left:3px solid var(--teal); }
+  .answer-no .msg-bubble { border-left:3px solid var(--rust); }
+  .answer-irrelevant .msg-bubble { border-left:3px solid var(--faded); }
+  .answer-win .msg-bubble { border-left:3px solid #c8a84b; background:#fffbf0 !important; }
+
+  .input-row { display:flex; gap:8px; }
+  .question-input {
+    flex:1; padding:11px 15px; border:1px solid var(--faded); background:white;
+    font-family:'Noto Serif TC',serif; font-size:14px; color:var(--ink); outline:none;
+  }
+  .question-input:focus { border-color:var(--ink); }
+  .question-input::placeholder { color:var(--faded); }
+  .question-input:disabled { opacity:.5; }
+
+  .game-footer {
+    display:flex; justify-content:space-between; align-items:center;
+    margin-top:18px; padding-top:14px; border-top:1px solid var(--faded);
+  }
+  .progress-label { font-size:11px; color:var(--faded); letter-spacing:1px; }
+  .reveal-btn {
+    font-size:12px; padding:7px 14px; background:transparent;
+    border:1px dashed var(--faded); color:var(--faded);
+    cursor:pointer; font-family:'Noto Serif TC',serif; transition:all .2s;
+  }
+  .reveal-btn:hover { border-color:var(--rust); color:var(--rust); }
+
+  /* THINKING */
+  .dot-pulse span {
+    display:inline-block; width:5px; height:5px;
+    background:var(--faded); border-radius:50%; margin-right:3px; animation:pulse 1.2s infinite;
+  }
+  .dot-pulse span:nth-child(2) { animation-delay:.2s; }
+  .dot-pulse span:nth-child(3) { animation-delay:.4s; }
+  @keyframes pulse { 0%,80%,100%{opacity:.3;transform:scale(.8)} 40%{opacity:1;transform:scale(1)} }
+  .thinking-indicator { display:none; align-items:center; gap:8px; font-size:12px; color:var(--faded); font-style:italic; padding:8px 0; }
+  .thinking-indicator.show { display:flex; }
+
+  /* ANSWER */
+  #screen-answer .card { text-align:center; }
+  .answer-label { font-size:11px; letter-spacing:3px; color:var(--rust); text-transform:uppercase; margin-bottom:18px; }
+  .answer-title { font-size:26px; font-weight:300; color:var(--ink); margin-bottom:22px; }
+  .answer-body { font-size:15px; line-height:2; color:var(--ink); text-align:left; background:var(--aged); padding:22px 26px; border:1px solid var(--faded); margin-bottom:26px; }
+  .stat-row { display:flex; gap:24px; justify-content:center; margin-bottom:24px; }
+  .stat { text-align:center; }
+  .stat-val { font-size:28px; font-weight:300; color:var(--ink); }
+  .stat-lbl { font-size:10px; color:var(--faded); letter-spacing:1.5px; text-transform:uppercase; }
+
+  @media(max-width:600px) {
+    .card { padding:28px 22px; }
+    h1 { font-size:38px; }
+    .puzzle-grid { grid-template-columns:1fr; }
+    .controls-row { flex-direction:column; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- TITLE -->
+<div class="screen active" id="screen-title">
+  <div class="card">
+    <div class="title-header">
+      <div class="title-ornament">Lateral Thinking Puzzle</div>
+      <h1>海龜湯</h1>
+      <div class="title-sub">情境猜謎遊戲</div>
+    </div>
+    <div class="divider">遊戲規則</div>
+    <p style="font-size:14px;line-height:2.1;color:#555;margin-bottom:28px;">
+      出題者描述一個奇怪的情境，你透過提問來猜出背後的真相。<br>
+      每個問題只能用「<strong>是</strong>」、「<strong>否</strong>」或「<strong>不相關</strong>」回答。<br>
+      提問越少、猜中越快，代表你的推理能力越強！
+    </p>
+    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+      <button class="btn" onclick="showScreen('screen-select')">開始遊戲</button>
+      <span style="font-size:12px;color:var(--faded);">共 40 道謎題，涵蓋各種難度與主題</span>
+    </div>
+  </div>
+</div>
+
+<!-- SELECT -->
+<div class="screen" id="screen-select">
+  <div class="card">
+    <h2 style="font-size:20px;font-weight:400;margin-bottom:20px;color:var(--ink);">選擇謎題</h2>
+    <div class="controls-row">
+      <input class="search-input" id="search-input" type="text" placeholder="搜尋題目…" oninput="filterPuzzles()">
+      <select class="filter-select" id="filter-tag" onchange="filterPuzzles()">
+        <option value="">所有主題</option>
+        <option value="經典">經典</option>
+        <option value="懸疑">懸疑</option>
+        <option value="驚悚">驚悚</option>
+        <option value="日常">日常</option>
+        <option value="黑色幽默">黑色幽默</option>
+        <option value="心理">心理</option>
+        <option value="推理">推理</option>
+      </select>
+      <select class="filter-select" id="filter-diff" onchange="filterPuzzles()">
+        <option value="">所有難度</option>
+        <option value="⭐">⭐ 簡單</option>
+        <option value="⭐⭐">⭐⭐ 中等</option>
+        <option value="⭐⭐⭐">⭐⭐⭐ 困難</option>
+      </select>
+    </div>
+    <div class="puzzle-grid" id="puzzle-grid"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:24px;padding-top:18px;border-top:1px solid var(--faded);">
+      <button class="btn btn-ghost btn-sm" onclick="showScreen('screen-title')">← 返回</button>
+      <button class="btn" id="btn-start" onclick="startGame()" disabled>開始猜謎 →</button>
+    </div>
+  </div>
+</div>
+
+<!-- GAME -->
+<div class="screen" id="screen-game">
+  <div class="card">
+    <div class="game-header">
+      <div>
+        <div class="game-tag" id="game-tag"></div>
+        <div id="game-title" style="font-size:18px;font-weight:400;margin-top:4px;color:var(--ink);"></div>
+      </div>
+      <div class="game-meta">提問次數<br><span style="font-size:22px;font-weight:300;" id="q-count">0</span></div>
+    </div>
+    <div class="puzzle-surface"><div class="puzzle-text" id="game-surface"></div></div>
+    <div class="hint-row">只能問是非題 ‧ AI 會回答「是」「否」「不相關」</div>
+    <div class="chat-log" id="chat-log"></div>
+    <div class="thinking-indicator" id="thinking">
+      <div class="dot-pulse"><span></span><span></span><span></span></div>
+      出題者思考中…
+    </div>
+    <div class="input-row">
+      <input class="question-input" id="q-input" type="text" placeholder="輸入你的問題…" onkeydown="if(event.key==='Enter')askQuestion()">
+      <button class="btn btn-sm" id="ask-btn" onclick="askQuestion()">提問</button>
+    </div>
+    <div class="game-footer">
+      <div class="progress-label" id="progress-label">提問開始，真相就在不遠處</div>
+      <button class="reveal-btn" onclick="revealAnswer()">揭曉答案</button>
+    </div>
+  </div>
+</div>
+
+<!-- ANSWER -->
+<div class="screen" id="screen-answer">
+  <div class="card">
+    <div class="answer-label">── 真相大白 ──</div>
+    <div class="answer-title" id="ans-title"></div>
+    <div class="stat-row">
+      <div class="stat"><div class="stat-val" id="stat-q">0</div><div class="stat-lbl">提問次數</div></div>
+      <div class="stat"><div class="stat-val" id="stat-rating">—</div><div class="stat-lbl">評價</div></div>
+    </div>
+    <div class="answer-body" id="ans-body"></div>
+    <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+      <button class="btn btn-ghost" onclick="showScreen('screen-select')">再玩一局</button>
+      <button class="btn" onclick="showScreen('screen-title')">回首頁</button>
+    </div>
+  </div>
+</div>
+
+</div>
+<script>
+const PUZZLES = [
+  {id:1,tag:"經典",diff:"⭐⭐",title:"海龜湯",
+   surface:"一位船長喝了一碗湯，感覺味道有點奇怪，便問店家這是什麼湯。店家說：「這是海龜肉做的湯。」船長沉思片刻後，痛哭失聲，接著自殺了。請問為什麼？",
+   answer:"船長年輕時出海遭遇暴風雨，在海上漂流許久，糧食耗盡。為了讓船長活下去，倖存的船員將已經死亡的夥伴的肉煮成湯，謊稱是海龜肉給船長喝。多年後，船長在店家吃到真正的海龜肉，才終於明白當年的真相——自己吃的根本不是海龜，而是同伴的肉。傷心欲絕之下，選擇自我了結。"},
+  {id:2,tag:"經典",diff:"⭐⭐",title:"電梯",
+   surface:"住在三十樓的男人，每天早上搭電梯到一樓上班。晴天回家時，他只搭到十五樓，再走樓梯。但下雨天，他會直接搭到三十樓。為什麼？",
+   answer:"這個男人身材矮小，電梯裡的按鈕他只能碰到十五樓。但雨天帶了雨傘，可以用傘尖撐著按到三十樓的按鈕。"},
+  {id:3,tag:"經典",diff:"⭐⭐",title:"火車上的盲人",
+   surface:"一個人坐火車去外縣市看病，看完病後痊癒了。回程時，火車駛入一段隧道，他便跳車自殺了。為什麼？",
+   answer:"這個人原本是盲人，這次看診是為了治療眼睛，終於重見光明。然而火車通過隧道時，四周一片漆黑，他以為自己又瞎了，在絕望中跳車自殺。"},
+  {id:4,tag:"經典",diff:"⭐⭐",title:"砍手",
+   surface:"一個男人用刀把許多人的手砍斷，被砍的人中，甚至有他認識的人。請問為什麼？",
+   answer:"發生了船難，男人在一艘超載的救生艇上。許多溺水者不斷游來，拼命抓著救生艇的邊緣，救生艇隨時會因為超重而翻覆。為了保住艇上其他人的性命，男人不得不將溺水者伸出來的手砍斷——即使其中有些人是他認識的。"},
+  {id:5,tag:"經典",diff:"⭐⭐",title:"少一張郵票",
+   surface:"一個男人發現自己少貼了一張郵票，然後就死了。請問為什麼？",
+   answer:"這個男人計畫將一個定時炸彈寄給仇人，並精確設定了爆炸時間，確保郵件送達後才會爆炸。但因為少貼了一張郵票，郵件被退回男人自己家，時間一到炸彈爆炸，男人被炸死了。"},
+  {id:6,tag:"經典",diff:"⭐⭐",title:"牛吃草",
+   surface:"一個男人深夜聽到隔壁傳來爭吵聲、摔東西聲、砍東西聲，以及「牛吃草」的聲音。後來有人敲他家門，他沒有去開。第二天，他發現隔壁女主人的屍體倒在他家門口。請問發生了什麼事？",
+   answer:"隔壁的男主人當晚殺了妻子。「牛吃草」其實是女主人逃跑時在草坪上爬行的聲音。女主人最後爬到了男人的家門口敲門求救，男人卻因為害怕而沒有開門，最終女主人傷重死在門口。"},
+  {id:7,tag:"經典",diff:"⭐⭐⭐",title:"盲人的生日",
+   surface:"一群人替盲人朋友慶祝生日，唱完生日歌後一起鼓掌歡呼。盲人聽到掌聲，卻把所有人都殺了。為什麼？",
+   answer:"這群朋友曾和盲人一起遭遇危難，當時糧食斷絕，大家協議每人砍下自己一隻手來充飢。但只有盲人真的砍了，其他人根本沒有照做。生日那天聽到所有人鼓掌，盲人瞬間明白了真相——他們都有完整的雙手。憤怒之下，他殺了所有人。"},
+  {id:8,tag:"經典",diff:"⭐⭐⭐",title:"狗的舌頭",
+   surface:"女孩父母出差，她一個人在家，只有狗陪著。半夜聽到天花板傳來滴水聲，她伸手到床邊讓狗舔了一下，便安心入睡。隔天清早，她看到狗的屍體吊在天花板上——據分析是半夜被殺的。請問是誰舔了她的手？",
+   answer:"昨晚有人潛入屋內，殺死了狗並把屍體吊起來。天花板滴的是血水。女孩伸手時，摸到的不是狗，而是躲在床底下的陌生入侵者。那個人舔了她的手，讓她以為是狗，才沒有驚慌。"},
+  {id:9,tag:"懸疑",diff:"⭐⭐",title:"女舞者",
+   surface:"小明住的公寓對面，住著一個每天在窗邊旋轉跳舞的女舞者。小明心想：「舞者真勤奮啊！」幾天後，警察找上小明，問他是否認識對面那個女人。原來她早就死了。請問她在轉什麼？",
+   answer:"對面的女人並不是在跳舞，而是上吊在電風扇上。風扇轉動帶著她的屍體不停旋轉，從遠處看起來像是在跳舞。"},
+  {id:10,tag:"懸疑",diff:"⭐⭐⭐",title:"朋友要買飲料",
+   surface:"小美的朋友深夜來訪，聊到凌晨兩點。朋友在床底下拿東西時，突然堅持要小美陪她出去買飲料，說有一種飲料她非喝不可。那時店都已經關了。請問她為什麼一定要出去？",
+   answer:"朋友在床底下發現了一個躲藏的陌生人。她不敢在屋內聲張，怕激怒對方，只好找藉口要小美出去，讓兩人遠離危險，同時尋機報警。"},
+  {id:11,tag:"懸疑",diff:"⭐⭐⭐",title:"MSN大頭貼",
+   surface:"一個有前科的男子剛從警局問話回來。他打開電腦，發現某個網友的大頭貼換成了一件黑色西裝。他立刻衝出去，買了一件相同款式的白色西裝。請問為什麼？",
+   answer:"這個男子曾犯下一起謀殺案，作案時穿的是黑色西裝，那件西裝後來下落不明。網友的大頭貼顯示的正是那件黑色西裝，代表有人掌握了這項證據。他趕緊去買白色同款西裝，是為了日後辯稱「那件西裝是白色的，不是我的」。"},
+  {id:12,tag:"懸疑",diff:"⭐⭐",title:"密室裡的火柴",
+   surface:"一個女人死在從裡面上鎖的密室中，手裡握著一根燒過的火柴棒。請問發生了什麼事？",
+   answer:"這個女人被困在一艘熱氣球的封閉吊籃裡。氣球在高空中開始下墜，她點燃了最後一根火柴，試圖加熱空氣讓氣球上升，但為時已晚。氣球墜地，她在密封的吊籃中死亡。"},
+  {id:13,tag:"懸疑",diff:"⭐⭐",title:"廣播斷訊",
+   surface:"一個男子在雨夜開車聽廣播。閃電打雷的瞬間，廣播因干擾中斷了幾秒，他就跳車自殺了。為什麼？",
+   answer:"這個男子原本是聾子，後來接受治療才恢復聽力，非常害怕再度失聰。閃電干擾讓廣播突然消失，他以為自己又聾了，在絕望中跳車自殺。"},
+  {id:14,tag:"懸疑",diff:"⭐⭐⭐",title:"英國國旗",
+   surface:"一個混血男孩，父親是英國醫生，母親是日本英語老師。有一天，他翻到母親上課的講義，看到一張沒有上色的英國國旗，便回家殺了父親。為什麼？",
+   answer:"英國國旗（米字旗）的紅十字元素讓男孩誤以為母親在紅十字上劃叉，代表痛恨醫療。他聯想到父親可能是曾參加二戰的軍醫，進而認定自己是母親被迫所生。對自己混血身分的驕傲瞬間崩潰，於是衝動殺了父親。"},
+  {id:15,tag:"懸疑",diff:"⭐⭐",title:"夢遊的軍官",
+   surface:"兩個軍官被困在荒野，其中一人先死了。倖存者將戰友埋葬後，隔天早上醒來，卻發現戰友的屍體坐在自己身旁盯著他。請問怎麼回事？",
+   answer:"倖存的軍官患有夢遊症。他在當晚夢遊時，無意識地把剛埋好的戰友屍體挖了出來，放在自己旁邊。隔天早上醒來，不知道是自己幹的，嚇得以為是鬼魂。"},
+  {id:16,tag:"驚悚",diff:"⭐⭐⭐",title:"保姆",
+   surface:"爸爸過世後，我常幻覺爸爸還在。某天我去找爸爸告狀說保姆偷懶，爸爸說：「我們家沒請保姆。」我回房質問保姆，保姆說：「你爸爸已經去世一年了。」我衝出家門遇到鄰居阿姨，她說了一句話，讓我徹底崩潰了。她說了什麼？",
+   answer:"爸爸去世後，我因過度思念患上了解離性人格障礙，幻想出了一個「保姆」來照顧日常生活，也幻覺爸爸還在。鄰居阿姨說的是：「最近附近有人家遭小偷，你一個人住要注意安全。」這句話讓我驚覺——自己其實一直都是獨居，保姆和爸爸都只是幻覺。"},
+  {id:17,tag:"驚悚",diff:"⭐⭐⭐",title:"室友的天花板",
+   surface:"膽小的小紅常被室友惡作劇嚇到。某天早上，一位室友被尖叫聲驚醒，睜開眼看到天花板上寫著一句話，就說不出話來了。天花板上寫了什麼？",
+   answer:"小紅為了報復室友，用繩子綁在電風扇上，上吊自殺。她的屍體隨著扇葉轉動，就那樣看著剛醒來的室友。天花板上她留下的字是：「這次，換我嚇你們了吧。」"},
+  {id:18,tag:"驚悚",diff:"⭐⭐⭐",title:"魔術師的兒子",
+   surface:"小明非常崇拜身為魔術師的父親。有一天，小明把媽媽殺了，對爸爸說了一句話，爸爸就自殺了。小明說了什麼？",
+   answer:"小明的爸爸擅長表演「用刀切開人體再接回來」的魔術。小明以為這是真的，趁爸爸不在時把媽媽真的砍成了碎片，以為爸爸回來可以「接回去」。爸爸回家後，小明天真地說：「爸爸，媽媽切壞了，你可以把她接回來嗎？」爸爸看到眼前的慘狀，無法承受，當場自殺。"},
+  {id:19,tag:"驚悚",diff:"⭐⭐",title:"凍死門口",
+   surface:"一個男人深夜聽到有人敲門，他沒有開門。隔天，門外發現一具屍體，是凍死的。警察說那人死前拼命敲門求救。男人被捕了，但他不是兇手。為什麼被捕？",
+   answer:"那具屍體是男人的妻子。妻子深夜外出後迷路，凍得快死了回來敲門求救，但男人以為是陌生人，也可能以為妻子仍在屋內，沒有開門。妻子就這樣在自家門口凍死了。男人雖非故意，仍因過失致死而被捕。"},
+  {id:20,tag:"驚悚",diff:"⭐⭐⭐",title:"照鏡子",
+   surface:"一名男子每天早上都要照鏡子刮鬍子。某天早上他看了鏡子，卻去自殺了。為什麼？",
+   answer:"這個男子是遠洋船員，長期在海上漂流，妻子和他分隔兩地。他每天早上照鏡子，其實是在看貼在鏡框上妻子的照片，思念她。那天回到家，卻發現照片不見了，走進房間，見到妻子和另一個男人在一起。他走回浴室，再次看著那面空空的鏡子，選擇了自殺。"},
+  {id:21,tag:"日常",diff:"⭐",title:"奇怪的遺囑",
+   surface:"一個億萬富翁立下遺囑，把所有財產留給「最愚蠢的兒子」。遺囑公開後，兩個兒子都沒有提出異議。為什麼？",
+   answer:"這個富翁只有一個兒子。他在遺囑中說「最愚蠢的兒子」，是一種調侃，唯一的兒子就是那個「最愚蠢的兒子」。兒子明白自己是唯一繼承人，自然沒有意見。"},
+  {id:22,tag:"日常",diff:"⭐⭐",title:"兩個醫生",
+   surface:"同一家醫院，甲醫生的病人死亡率是乙醫生的兩倍。但醫院評鑑時，甲醫生的評分遠高於乙醫生。為什麼？",
+   answer:"甲醫生是外科主任，專門接收來自各地的最嚴重病例——幾乎都是其他醫院放棄的絕症患者。乙醫生則負責門診輕症，這些人大多自然康復。甲醫生雖然死亡率高，每一個死亡都是幾乎救不活的絕症；他在絕境中救活的人，才是真正的成就。"},
+  {id:23,tag:"日常",diff:"⭐",title:"報警的咖啡",
+   surface:"一個盲人每天都在同一家咖啡廳點同一杯咖啡。某天他喝了一口，立刻報警了。為什麼？",
+   answer:"這個盲人長期光顧這家咖啡廳，靠味道判斷狀況。他的好友曾告訴他：「如果哪天咖啡味道變了，可能代表店員遇到麻煩或被威脅。」那天他喝了一口，味道和往常完全不同，立刻判斷店裡可能出事了，便報警。"},
+  {id:24,tag:"日常",diff:"⭐⭐",title:"三兄弟",
+   surface:"三兄弟感情極好，常常一起睡覺。大哥病死後，三弟把二哥殺了。為什麼？",
+   answer:"大哥和二哥是雙胞胎，長得一模一樣。大哥死後，三弟深夜醒來，看見一個人躺在旁邊，以為大哥的鬼魂回來了，嚇得在黑暗中失手殺了睡夢中的二哥。"},
+  {id:25,tag:"日常",diff:"⭐",title:"偵探的推理",
+   surface:"一個偵探走進一棟公寓，馬上判斷其中一戶住了獨居老人，並推測老人可能出事了。他是怎麼判斷的？",
+   answer:"偵探看到某一戶門口堆著好幾天沒有收走的牛奶瓶和報紙。正常人每天都會收取這些東西，堆積在外代表主人已多天未出門，極可能發生了意外。"},
+  {id:26,tag:"日常",diff:"⭐⭐",title:"一個人的公寓",
+   surface:"一個女人獨居已久，某天朋友來訪聊到深夜十一點。朋友在床底下拿東西，隨即說：「我們出去買果汁吧，我很渴。」那時候商店早就關門了，但她仍堅持要出去。為什麼？",
+   answer:"朋友在床底下發現了一個躲藏的陌生人。她不敢聲張，以免激怒對方，便找藉口帶著女主人一起離開房間，遠離危險，再另尋機會報警。"},
+  {id:27,tag:"日常",diff:"⭐",title:"永遠開不了的門",
+   surface:"一個男人每天都用鑰匙開不了自己家的門，但他從來不換鎖也不找人修。為什麼？",
+   answer:"他每次以為要用鑰匙，但其實門從來就沒有鎖上——只是自然帶上而已。他只需要用力推，門就開了。他一直誤以為是在「開鎖」，其實只是在推門。"},
+  {id:28,tag:"日常",diff:"⭐",title:"同一條軌道",
+   surface:"兩列火車在同一條軌道上對向行駛，卻沒有相撞。沒有人切換軌道，也沒有任何設備干預。為什麼？",
+   answer:"兩列火車行駛的時間不同——一列白天跑，一列晚上跑。它們在不同的時間使用同一條軌道，所以根本不會相遇。"},
+  {id:29,tag:"黑色幽默",diff:"⭐⭐",title:"將軍的笑話",
+   surface:"一位殘酷的將軍下令：「誰能讓我微笑，就可以免死。」一百個俘虜，只有最後一個人活了下來。為什麼？",
+   answer:"俘虜們輪流說笑話，將軍每次都笑了，但說完笑話的人仍被處決——因為將軍說的是讓他「第一次」微笑的人。前九十九個人讓他笑了，但那都不是第一次。第一百個俘虜什麼都沒說，被處決前淡定地說：「我只是讓你第一次對我微笑。」將軍看著這個從容的人，不由自主地笑了——那是他第一次因這個俘虜而微笑，他因此獲免一死。"},
+  {id:30,tag:"黑色幽默",diff:"⭐⭐",title:"完美的謀殺",
+   surface:"一個男人殺了妻子，把屍體藏在行李箱裡帶上飛機，順利通關。但他還是被抓了。為什麼？",
+   answer:"男人抵達目的地後，打開行李箱取東西時，旁邊的旅客聞到了異味並通報了海關。更致命的是，他在填寫海關申報單時，在「是否攜帶食品或生鮮」那欄勾了「否」。"},
+  {id:31,tag:"黑色幽默",diff:"⭐",title:"最後一顆子彈",
+   surface:"一個士兵在戰場上發現自己的槍只剩最後一顆子彈，他把那顆子彈射向自己。為什麼他不是在自殺？",
+   answer:"士兵被敵人包圍，無路可逃，壓力極大。他把最後一顆子彈射向了頭頂嗡嗡作響、讓他快崩潰的蚊子——因為那隻蚊子的聲音比敵人還要令他抓狂。"},
+  {id:32,tag:"黑色幽默",diff:"⭐⭐",title:"獨眼畫家",
+   surface:"一個只有一隻眼睛的男人，畫出了全國最精準的透視風景畫，讓許多有雙眼的畫家汗顏。為什麼他畫得比別人更好？",
+   answer:"有兩隻眼睛的人因雙眼視差，看世界是立體的，在平面畫布上呈現透視時需要刻意「轉換」。只有一隻眼睛的人天生以單眼透視方式看世界，看到的畫面更接近二維平面的透視原理，因此在繪畫上反而比常人更有優勢。"},
+  {id:33,tag:"心理",diff:"⭐⭐⭐",title:"公主殺王子",
+   surface:"公主被咒語困在城堡裡沉睡，只有真愛之吻才能喚醒她。一位帥氣的王子進城堡，成功吻醒了公主。公主睜眼後，把王子殺了。為什麼？",
+   answer:"公主醒來後，看到的是一個完全陌生的男人——她根本不認識這個王子，也沒有任何感情。但這個陌生人趁她沉睡時強行親吻了她。公主出於自衛和憤怒，殺了他。"},
+  {id:34,tag:"心理",diff:"⭐⭐⭐",title:"電梯謀殺",
+   surface:"一名偵探在電梯裡發現了一具屍體，死者是獨自搭電梯時被殺的。監視畫面顯示死者一個人進去，一個人倒下，中間沒有其他人。請問兇手是誰、怎麼殺的？",
+   answer:"兇手是電梯維修工。他在前一天將一根細針插入電梯按鈕，針頭塗抹了毒藥。死者按按鈕時，針刺入手指，毒素發作，死在電梯裡。監視器拍到的，只是沒有人在場的「延遲殺人」。"},
+  {id:35,tag:"心理",diff:"⭐⭐",title:"鏡中人",
+   surface:"一個男人每天早上醒來，都發現鏡子裡的自己做出不同的表情，但他自己完全沒有感覺。他非常害怕，但去看醫生後，醫生說他完全正常。為什麼？",
+   answer:"這個男人臥室裡放的不是真正的鏡子，而是一個裝了單向玻璃的隔間。隔間另一邊住著他的同卵雙胞胎兄弟，兄弟每天早上都出現在玻璃後面做表情逗他。他從沒懷疑過，直到有一天意外發現了真相。"},
+  {id:36,tag:"心理",diff:"⭐⭐",title:"消失的嫌疑人",
+   surface:"警察追捕嫌疑犯，把他逼進了一條死巷。警察進去時，只看到三個工人：一個在刷牆、一個在掃地、一個在搬磚。嫌疑人消失了。警察立刻逮捕了其中一人。請問是誰？",
+   answer:"警察逮捕了那個「掃地」的工人。死巷裡根本沒有灰塵可掃——地面是乾淨的。嫌疑犯拿了工具假扮成工人，但選錯了道具，拿著掃把在乾淨地面上掃，行為異常，立刻被識破。"},
+  {id:37,tag:"推理",diff:"⭐⭐",title:"醫院連環死亡",
+   surface:"醫院裡接連有病患在吃完晚餐後，急性器官衰竭去世。食物經過嚴格檢驗，沒有毒。某天一位警察突然打翻了一個病患的餐盤，事後找到了兇手。警察是怎麼發現問題的？",
+   answer:"警察注意到所有死亡病患的餐具上有細微的化學異常。兇手是醫院工作人員，他知道食物會被檢驗，便改在一次性餐具上塗抹毒素。那天警察看到一個病患的湯匙已開始化學反應，立刻打翻餐盤阻止悲劇，並鎖定了管理餐具的工作人員。"},
+  {id:38,tag:"推理",diff:"⭐⭐",title:"雪地腳印",
+   surface:"雪地裡有一具男人屍體，屍體周圍只有他自己的腳印通往現場，卻沒有任何離開的腳印。警察判定這是他殺。請問兇手怎麼逃走的？",
+   answer:"兇手站在屍體上，倒著走——用自己的腳踩在死者留下的腳印上，沿著同一條路倒退走出雪地。雪地上只留下了死者的腳印，完全沒有額外的痕跡。"},
+  {id:39,tag:"推理",diff:"⭐⭐⭐",title:"失蹤的十分鐘",
+   surface:"一位女士在超市失蹤了十分鐘，監視器顯示她走進一條走廊後就消失，出來時她的神情完全不同，手上多了一個袋子。沒有人看到她做了什麼。她做了什麼？",
+   answer:"那條走廊的盡頭有一扇通往員工休息室的隱藏門。女士趁那十分鐘躲進去，與一名員工接頭，拿了一袋管制藥品。監視器死角讓整個交易過程毫無記錄。她神情改變，是因為交易順利完成，緊繃的情緒放鬆了。"},
+  {id:40,tag:"推理",diff:"⭐⭐⭐",title:"完美的目擊者",
+   surface:"警察接到報案，一名男子稱自己目擊了謀殺，描述得鉅細靡遺——兇手的臉、作案手法、逃跑方向全都說得一清二楚。偵探聽完，立刻逮捕了這名「目擊者」。為什麼？",
+   answer:"案發現場在地下室，沒有窗戶，唯一的照明在案發時被打翻，現場陷入全黑。任何真正的目擊者都不可能看清兇手的臉——除非他就是兇手本人，因為只有兇手知道自己的長相，知道自己如何逃跑。"}
+];
+
+let selectedPuzzle = null;
+let questionCount = 0;
+let chatHistory = [];
+let isThinking = false;
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if (id === 'screen-select') filterPuzzles();
+}
+
+function filterPuzzles() {
+  const query = document.getElementById('search-input').value.trim().toLowerCase();
+  const tag = document.getElementById('filter-tag').value;
+  const diff = document.getElementById('filter-diff').value;
+  const filtered = PUZZLES.filter(p => {
+    const mQ = !query || p.title.includes(query) || p.surface.includes(query);
+    const mT = !tag || p.tag === tag;
+    const mD = !diff || p.diff === diff;
+    return mQ && mT && mD;
+  });
+  renderGrid(filtered);
+}
+
+function renderGrid(list) {
+  const grid = document.getElementById('puzzle-grid');
+  if (!list.length) { grid.innerHTML = '<div class="empty-state">沒有符合的謎題</div>'; return; }
+  grid.innerHTML = list.map(p => `
+    <div class="puzzle-item ${selectedPuzzle?.id === p.id ? 'selected' : ''}" onclick="selectPuzzle(${p.id})">
+      <span class="puzzle-diff">${p.diff}</span>
+      <div class="puzzle-tag">${p.tag}</div>
+      <div class="puzzle-title">${p.title}</div>
+      <div class="puzzle-preview">${p.surface}</div>
+    </div>`).join('');
+}
+
+function selectPuzzle(id) {
+  selectedPuzzle = PUZZLES.find(p => p.id === id);
+  document.getElementById('btn-start').disabled = false;
+  filterPuzzles();
+}
+
+function startGame() {
+  if (!selectedPuzzle) return;
+  questionCount = 0; chatHistory = [];
+  document.getElementById('q-count').textContent = '0';
+  document.getElementById('game-tag').textContent = `${selectedPuzzle.tag} · ${selectedPuzzle.diff}`;
+  document.getElementById('game-title').textContent = selectedPuzzle.title;
+  document.getElementById('game-surface').textContent = selectedPuzzle.surface;
+  document.getElementById('progress-label').textContent = '提問開始，真相就在不遠處';
+  const log = document.getElementById('chat-log');
+  log.innerHTML = '';
+  addMessage('ai', '謎題開始。你可以用是非題來探索真相——我只回答「是」「否」「不相關」。');
+  showScreen('screen-game');
+  document.getElementById('q-input').focus();
+}
+
+async function askQuestion() {
+  if (isThinking) return;
+  const input = document.getElementById('q-input');
+  const q = input.value.trim();
+  if (!q) return;
+  input.value = '';
+  questionCount++;
+  document.getElementById('q-count').textContent = questionCount;
+  addMessage('user', q);
+  setThinking(true);
+
+  const sys = `你是海龜湯遊戲的出題者，只能用「是」「否」「不相關」加不超過20字的提示回答玩家的是非題。
+
+謎題情境：${selectedPuzzle.surface}
+完整真相（只有你知道）：${selectedPuzzle.answer}
+
+規則：
+1. 是非題 → 回答「是」或「否」，可加不超過20字提示。
+2. 與謎題完全無關 → 回答「這個不相關。」
+3. 非常接近答案 → 可說「你非常接近了！」
+4. 猜中完整真相 → 回答「你猜對了！」
+5. 不主動透露關鍵線索，風格神秘沉著。用繁體中文。`;
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model:'claude-sonnet-4-20250514', max_tokens:200, system:sys,
+        messages:[
+          ...chatHistory.map(m=>({role:m.role,content:m.content})),
+          {role:'user',content:q}
+        ]
+      })
+    });
+    const data = await resp.json();
+    const reply = data.content.map(c=>c.text||'').join('').trim();
+    chatHistory.push({role:'user',content:q});
+    chatHistory.push({role:'assistant',content:reply});
+
+    let cls = '';
+    if (/^是/.test(reply)) cls = 'answer-yes';
+    else if (/^否/.test(reply)||/^不[，,]/.test(reply)||/^不是/.test(reply)) cls = 'answer-no';
+    else if (reply.includes('不相關')) cls = 'answer-irrelevant';
+    if (reply.includes('你猜對了')) cls = 'answer-win';
+    addMessage('ai', reply, cls);
+
+    if (reply.includes('你猜對了')) document.getElementById('progress-label').textContent = '🎉 恭喜猜中！';
+    else if (questionCount >= 20) document.getElementById('progress-label').textContent = `已問 ${questionCount} 題 — 要揭曉了嗎？`;
+    else if (questionCount >= 10) document.getElementById('progress-label').textContent = `已問 ${questionCount} 題，繼續加油！`;
+  } catch(e) {
+    addMessage('ai', '（出題者沉默了片刻）請再問一次。');
+  } finally {
+    setThinking(false);
+    document.getElementById('q-input').focus();
+  }
+}
+
+function setThinking(on) {
+  isThinking = on;
+  document.getElementById('thinking').classList.toggle('show', on);
+  document.getElementById('q-input').disabled = on;
+  document.getElementById('ask-btn').disabled = on;
+}
+
+function addMessage(role, text, cls='') {
+  const log = document.getElementById('chat-log');
+  const label = role==='ai' ? '出題者' : '你';
+  const div = document.createElement('div');
+  div.className = `msg ${role} ${cls}`;
+  div.innerHTML = `<div class="msg-label">${label}</div><div class="msg-bubble">${esc(text)}</div>`;
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+}
+
+function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function revealAnswer() {
+  document.getElementById('ans-title').textContent = selectedPuzzle.title;
+  document.getElementById('ans-body').textContent = selectedPuzzle.answer;
+  document.getElementById('stat-q').textContent = questionCount;
+  let r = '😅 加油繼續';
+  if (questionCount <= 5) r = '🏆 天才推理';
+  else if (questionCount <= 10) r = '⭐ 優秀偵探';
+  else if (questionCount <= 20) r = '🔍 稱職偵探';
+  document.getElementById('stat-rating').textContent = r;
+  showScreen('screen-answer');
+}
+
+filterPuzzles();
+</script>
+</body>
+</html>
